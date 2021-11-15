@@ -145,8 +145,8 @@ int main(void)
   protocol_init();
   led_init(protocol);
   printf("protocol: %d\n", protocol);
-  printf("analog in scale = %f\n", AI_SCALE);
-  printf("analog out scale = %f\n", AO_SCALE);
+//  printf("analog in scale = %f\n", AI_SCALE);
+//  printf("analog out scale = %f\n", AO_SCALE);
   /* USER CODE END 2 */
 
   /* Infinite loop */
