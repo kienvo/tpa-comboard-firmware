@@ -144,9 +144,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   protocol_init();
   led_init(protocol);
-  printf("protocol: %d\n", protocol);
-//  printf("analog in scale = %f\n", AI_SCALE);
-//  printf("analog out scale = %f\n", AO_SCALE);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -223,6 +221,7 @@ void protocol_init(void)
 	else if(protocol == PROTOCOL_MODBUS_TCP)
 	{
 		//init modbus tcp
+
 	}
 	else if(protocol == PROTOCOL_TCP_IP)
 	{
@@ -328,6 +327,16 @@ uint8_t selected_protocol(void)
 		return PROTOCOL_TCP_IP;
 	}
 
+}
+
+void delay_us(uint32_t delays)
+{
+	uint8_t i;
+	while((delays--) > 0)
+	{
+		for(i = 0; i < 72; i++);
+
+	}
 }
 /* USER CODE END 4 */
 
