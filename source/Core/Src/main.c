@@ -54,7 +54,7 @@
 #define RI2		0.47//Kohm
 #define RO1		20//Kohm
 #define RO2		10//Kohm
-#define CALIB_VALUE	1 //1.469
+#define CALIB_VALUE	1.469
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,7 +66,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const float AI_SCALE = (float)RI2 / ((float)RI1 + (float)RI2);
+//const float AI_SCALE = (float)RI2 / ((float)RI1 + (float)RI2);
+const float AI_SCALE = (float)RI2 / (float)RI1;
 const float AO_SCALE = (float)1 + ((float)RO1 / (float)RO2);
 
 static uint8_t protocol;
