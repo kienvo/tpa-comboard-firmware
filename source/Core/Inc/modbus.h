@@ -47,10 +47,12 @@
  }MBAP_Header_TypeDef;
  typedef struct
  {
+	uint16_t				TransactionID;
+	uint16_t				ProtocolID;
+	uint16_t				Length;
  	uint8_t					ID; // slave ID
- 	uint8_t					Funtion; // function code
+ 	uint8_t					Function; // function code
  	uint8_t 				Data[256]; // receive data
- 	uint8_t					Lenght; // receive data length
  	uint16_t				Crc; //CRC
  	MBAP_Header_TypeDef		MBAP_Header; // MBAP header use for modbus TCP
  	ModbusProtocol_TypeDef 	Protocol; // modbus RTU/TCP
@@ -111,6 +113,7 @@
 void modbus_init(ModbusProtocol_TypeDef protocol);
 void modbus_checking_request(void);
 void modbus_rtu_receive_irq(uint8_t data);
+void modbus_tcp_parse_frame(uint8_t *frame, uint16_t len);
 #ifdef __cplusplus
 }
 #endif
