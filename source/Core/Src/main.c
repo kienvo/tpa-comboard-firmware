@@ -54,7 +54,7 @@
 #define RI2		0.47//Kohm
 #define RO1		20//Kohm
 #define RO2		10//Kohm
-#define CALIB_VALUE	1.469
+#define CALIB_VALUE	1//1.469
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,8 +66,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-//const float AI_SCALE = (float)RI2 / ((float)RI1 + (float)RI2);
-const float AI_SCALE = (float)RI2 / (float)RI1;
+const float AI_SCALE = (float)RI2 / ((float)RI1 + (float)RI2);
+//const float AI_SCALE = (float)RI2 / (float)RI1;
 const float AO_SCALE = (float)1 + ((float)RO1 / (float)RO2);
 
 static uint8_t protocol;
@@ -90,7 +90,7 @@ uint32_t analog_output_channels[2] = {DAC_CHANNEL_1, DAC_CHANNEL_2};
 uint32_t analog_input_channels[4] = {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3};
 
 uint8_t mac_addr[6] = {0x00, 0x00, 0x00, 0x35, 0x02, 0x04};
-uint8_t ip_addr[4] = {192, 168, 0, 150};
+uint8_t ip_addr[4] = {192, 168, 1, 150};
 uint16_t tcp_port = 502;
 
 /* USER CODE END PV */
@@ -337,19 +337,23 @@ uint8_t selected_protocol(void)
 	uint8_t state;
 
 	state = HAL_GPIO_ReadPin(SW1_GPIO_Port, SW1_Pin);
-	if(state == 0)// select modbus rtu
+	if(state == 1)// select modbus rtu
 	{
 		return PROTOCOL_MODBUS_RTU;
 	}
-	state = HAL_GPIO_ReadPin(SW2_GPIO_Port, SW2_Pin);
-	if(state == 0)// select modbus tcp
+	else// select modbus tcp
 	{
 		return PROTOCOL_MODBUS_TCP;
 	}
-	else // select tcp/ip
-	{
-		return PROTOCOL_TCP_IP;
-	}
+//	state = HAL_GPIO_ReadPin(SW2_GPIO_Port, SW2_Pin);
+//	if(state == 0)// select modbus tcp
+//	{
+//		return PROTOCOL_MODBUS_TCP;
+//	}
+//	else // select tcp/ip
+//	{
+//		return PROTOCOL_TCP_IP;
+//	}
 
 }
 
