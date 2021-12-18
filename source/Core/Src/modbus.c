@@ -32,8 +32,8 @@ extern const float AO_SCALE;
 
 /* private variables----------------------------------------------------------*/
 ModbusHandle_TypeDef modbus;
-static uint8_t rtu_rx_state;
-static uint8_t rtu_rx_count;
+static uint8_t rtu_rx_state = MB_RTU_RX_ID;
+static uint8_t rtu_rx_count = 0;
 
 
 /* private function prototypes -----------------------------------------------*/
@@ -121,7 +121,7 @@ void modbus_rtu_receive_irq(uint8_t data)
 			modbus.Crc |= (data << 8);
 			modbus.New = 1;
 			rtu_rx_state = MB_RTU_RX_ID;
-//			printf("RX new frame[%.2X %.2X %.4X]\n", Modbus.ID, Modbus.Function, Modbus.Crc);
+			//printf("RX new frame[%.2X %.2X %.4X]\n", modbus.ID, modbus.Function, modbus.Crc);
 			break;
 		default:
 			rtu_rx_state = MB_RTU_RX_ID;
@@ -161,10 +161,10 @@ static void modbus_response(ModbusHandle_TypeDef *hmodbus)
 	}
 	else//TCP
 	{
-		uint16_t temp = modbus.Length;
-		modbus.Length = temp >> 8 | temp << 8;
+		uint16_t temp = modbus.Length + 2;
+		modbus.Length = (temp & 0xFF00) >> 8 | (temp & 0xFF) << 8;
 		ptxdata = (uint8_t *)&hmodbus->TransactionID;
-		txlen = temp + 8;
+		txlen = temp + 6;
 		tcp_send_data(ptxdata, txlen);
 	}
 }
@@ -423,12 +423,12 @@ static void modbus_processing_function_16(void)
 void modbus_checking_request(void)
 {
 	if(modbus.New == 0) return;
-
+	printf("New modbus request\n");
 	if(modbus.Protocol == MODBUS_RTU)
 	{
 		if(modbus.ID != MB_SLAVE_ID) // frame not addressed
 		{
-			//printf("wrong id\n");
+			printf("wrong id\n");
 			modbus_clear_buffer();
 			return;
 		}
@@ -443,7 +443,7 @@ void modbus_checking_request(void)
 	{
 		if(modbus.ID!= MB_SLAVE_ID) // frame not addressed
 		{
-//			printf("wrong id\n");
+			printf("wrong id\n");
 			modbus_clear_buffer();
 			return;
 		}
