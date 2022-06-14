@@ -150,6 +150,14 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  MX_ADC1_Init();
+  MX_DAC_Init();
+  MX_SPI3_Init();
+  MX_USART3_UART_Init();
+  MX_TIM4_Init();
+  MX_UART4_Init();
+  /* USER CODE BEGIN 2 */
  // HAL_UART_Receive_IT(&huart4,&data_recieve1[0],1);
    HAL_GPIO_WritePin(digit_output_ports[0], digit_output_pins[0], 1);
    HAL_GPIO_WritePin(digit_output_ports[1], digit_output_pins[1], 1);
@@ -159,14 +167,6 @@ int main(void)
    HAL_GPIO_WritePin(digit_output_ports[5], digit_output_pins[5], 1);
    HAL_GPIO_WritePin(digit_output_ports[6], digit_output_pins[6], 1);
    HAL_GPIO_WritePin(digit_output_ports[7], digit_output_pins[7], 1);
-  MX_USART1_UART_Init();
-  MX_ADC1_Init();
-  MX_DAC_Init();
-  MX_SPI3_Init();
-  MX_USART3_UART_Init();
-  MX_TIM4_Init();
-  MX_UART4_Init();
-  /* USER CODE BEGIN 2 */
   analog_init();
   protocol_init();
   led_init(protocol);
@@ -185,9 +185,9 @@ int main(void)
 	  modbus_checking_request();
 	 // HAL_Delay(10);
 
-    /* USER CODE END WHILE */
+	/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+	/* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -214,12 +214,12 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
   /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+							  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
@@ -227,13 +227,13 @@ void SystemClock_Config(void)
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
   PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
-    Error_Handler();
+	Error_Handler();
   }
 }
 
@@ -439,7 +439,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	 ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

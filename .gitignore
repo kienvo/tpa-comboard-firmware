@@ -1,2 +1,9 @@
 /Debug/
 /Release/
+*.o
+*.d
+*.bin
+*.elf
+*.lst
+*.map
+*.hex
