@@ -3,6 +3,7 @@
 
 #include "stm32f1xx_hal.h"
 #define Delay HAL_Delay
+#define POLL_INTERVAL 1 //ms
 
 
 #define disableChip  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, 1)
