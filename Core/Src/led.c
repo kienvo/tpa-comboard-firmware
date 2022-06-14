@@ -12,8 +12,8 @@
 /* private macro -------------------------------------------------------------*/
 
 /* private defines -----------------------------------------------------------*/
-#define LED_RUN_CYCLE		80 // 80 * 25(timer) = 2000ms = 2s
-#define LED_RUN_TOGGLE_CYCLE	6 // 8 * 25 = 150ms
+#define LED_RUN_CYCLE		20 // 40 * 50(timer) = 2000ms = 2s
+#define LED_RUN_TOGGLE_CYCLE	1 // 3 * 50 = 150ms
 /* private types -------------------------------------------------------------*/
 
 /* private variables----------------------------------------------------------*/

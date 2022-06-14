@@ -32,6 +32,8 @@
 #include "modbus.h"
 #include "stdio.h"
 #include "math.h"
+#include "net.h"
+#include "enc28j60.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,7 +54,7 @@
 #define RI2		0.47//Kohm
 #define RO1		20//Kohm
 #define RO2		10//Kohm
-#define CALIB_VALUE	1.607
+#define CALIB_VALUE	1//1.469
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -64,7 +66,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const float AI_SCALE = (float)RI2 / (float)RI1;
+const float AI_SCALE = (float)RI2 / ((float)RI1 + (float)RI2);
+//const float AI_SCALE = (float)RI2 / (float)RI1;
 const float AO_SCALE = (float)1 + ((float)RO1 / (float)RO2);
 
 static uint8_t protocol;
@@ -86,6 +89,18 @@ GPIO_TypeDef* digit_input_ports[8] = {
 uint32_t analog_output_channels[2] = {DAC_CHANNEL_1, DAC_CHANNEL_2};
 uint32_t analog_input_channels[4] = {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3};
 
+uint8_t mac_addr[6] = {0x00, 0x00, 0x00, 0x35, 0x02, 0x04};
+uint8_t ip_addr[4] = {192, 168, 1, 150};
+uint16_t tcp_port = 502;
+
+// sun test uart4
+uint8_t ok[2]={"OK"};
+uint8_t error[5]={"ERROR"};
+uint8_t data_recieve1[1];
+uint8_t data_recieve2[20];
+uint8_t count=0,i;
+uint8_t flag = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,6 +109,7 @@ void SystemClock_Config(void);
 void analog_init(void);
 uint8_t selected_protocol(void);
 void protocol_init(void);
+void ethernet_init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -134,6 +150,15 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+ // HAL_UART_Receive_IT(&huart4,&data_recieve1[0],1);
+   HAL_GPIO_WritePin(digit_output_ports[0], digit_output_pins[0], 1);
+   HAL_GPIO_WritePin(digit_output_ports[1], digit_output_pins[1], 1);
+   HAL_GPIO_WritePin(digit_output_ports[2], digit_output_pins[2], 1);
+   HAL_GPIO_WritePin(digit_output_ports[3], digit_output_pins[3], 1);
+   HAL_GPIO_WritePin(digit_output_ports[4], digit_output_pins[4], 1);
+   HAL_GPIO_WritePin(digit_output_ports[5], digit_output_pins[5], 1);
+   HAL_GPIO_WritePin(digit_output_ports[6], digit_output_pins[6], 1);
+   HAL_GPIO_WritePin(digit_output_ports[7], digit_output_pins[7], 1);
   MX_USART1_UART_Init();
   MX_ADC1_Init();
   MX_DAC_Init();
@@ -142,8 +167,10 @@ int main(void)
   MX_TIM4_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  analog_init();
   protocol_init();
   led_init(protocol);
+  // sun test
 
   /* USER CODE END 2 */
 
@@ -151,11 +178,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(protocol == PROTOCOL_MODBUS_RTU)
+	  if(protocol == PROTOCOL_MODBUS_TCP)
 	  {
-		  modbus_checking_request();
+		  net_analyzer();
 	  }
-	  HAL_Delay(5);
+	  modbus_checking_request();
+	 // HAL_Delay(10);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -221,7 +250,8 @@ void protocol_init(void)
 	else if(protocol == PROTOCOL_MODBUS_TCP)
 	{
 		//init modbus tcp
-
+		ethernet_init();
+		modbus_init(MODBUS_TCP);
 	}
 	else if(protocol == PROTOCOL_TCP_IP)
 	{
@@ -257,6 +287,10 @@ void digital_write(uint16_t channel, uint8_t pinstate)
 uint8_t analog_read(uint16_t channel, uint16_t *pvalue, uint8_t mode)
 {
 	uint32_t values = 0;
+	if(channel > 3)
+	{
+		channel = 3;
+	}
 	if(mode != 0)//doc gia tri set DAC
 	{
 		values = HAL_DAC_GetValue(&hdac, analog_output_channels[channel]);
@@ -267,6 +301,7 @@ uint8_t analog_read(uint16_t channel, uint16_t *pvalue, uint8_t mode)
 	uint8_t i;
 	HAL_StatusTypeDef status;
 	ADC_ChannelConfTypeDef sConfig = {0};
+
 	sConfig.Channel = analog_input_channels[channel];
 	sConfig.Rank = ADC_REGULAR_RANK_1;
 	sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES_5;
@@ -313,22 +348,59 @@ uint8_t selected_protocol(void)
 	uint8_t state;
 
 	state = HAL_GPIO_ReadPin(SW1_GPIO_Port, SW1_Pin);
-	if(state == 0)// select modbus rtu
+	if(state == 1)// select modbus rtu
 	{
 		return PROTOCOL_MODBUS_RTU;
 	}
-	state = HAL_GPIO_ReadPin(SW2_GPIO_Port, SW2_Pin);
-	if(state == 0)// select modbus tcp
+	else// select modbus tcp
 	{
 		return PROTOCOL_MODBUS_TCP;
 	}
-	else // select tcp/ip
-	{
-		return PROTOCOL_TCP_IP;
-	}
+//	state = HAL_GPIO_ReadPin(SW2_GPIO_Port, SW2_Pin);
+//	if(state == 0)// select modbus tcp
+//	{
+//		return PROTOCOL_MODBUS_TCP;
+//	}
+//	else // select tcp/ip
+//	{
+//		return PROTOCOL_TCP_IP;
+//	}
 
 }
 
+void ethernet_init(void)
+{
+	uint8_t f;
+	//uint8_t rev;
+	enc28j60_set_spi(&hspi3);
+	printf("initialize enc28j60\n");
+	/*initialize enc28j60*/
+	enc28j60Init(mac_addr);
+	enc28j60getrev();
+	enc28j60clkout(2); // change clkout from 6.25MHz to 12.5MHz
+	HAL_Delay(10);
+
+	for( f=0; f<3; f++ )
+	{
+		// 0x880 is PHLCON LEDB=on, LEDA=on
+		// enc28j60PhyWrite(PHLCON,0b0011 1000 1000 00 00);
+		enc28j60PhyWrite(PHLCON,0x3880);
+		HAL_Delay(200);
+
+		// 0x990 is PHLCON LEDB=off, LEDA=off
+		// enc28j60PhyWrite(PHLCON,0b0011 1001 1001 00 00);
+		enc28j60PhyWrite(PHLCON,0x3990);
+		HAL_Delay(200);
+	}
+
+	// 0x476 is PHLCON LEDA=links status, LEDB=receive/transmit
+	// enc28j60PhyWrite(PHLCON,0b0011 0100 0111 01 10);
+	enc28j60PhyWrite(PHLCON,0x3476);
+	HAL_Delay(100);
+
+	printf("initialize IP\n");
+	net_init(mac_addr, ip_addr, tcp_port);
+}
 void delay_us(uint32_t delays)
 {
 	uint8_t i;

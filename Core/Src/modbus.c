@@ -12,6 +12,8 @@
 #include "led.h"
 #include "stdio.h"
 #include "math.h"
+#include "net.h"
+#include "string.h"
 /* private defines -----------------------------------------------------------*/
 #define MB_huart	huart1
 
@@ -30,8 +32,8 @@ extern const float AO_SCALE;
 
 /* private variables----------------------------------------------------------*/
 ModbusHandle_TypeDef modbus;
-static uint8_t rtu_rx_state;
-static uint8_t rtu_rx_count;
+static uint8_t rtu_rx_state = MB_RTU_RX_ID;
+static uint8_t rtu_rx_count = 0;
 
 
 /* private function prototypes -----------------------------------------------*/
@@ -62,14 +64,16 @@ static uint16_t modbus_CRC16(uint8_t *pBuffer, uint8_t len)
 static void modbus_clear_buffer(void)
 {
 	uint8_t i;
-	modbus.ID = 0;
-	modbus.Funtion = 0;
-	modbus.New = 0;
-	modbus.Lenght = 0;
+	uint8_t *buffer;
+	buffer = (uint8_t *)&modbus.TransactionID;
+//	modbus.ID = 0;
+//	modbus.Function = 0;
+//	modbus.New = 0;
+//	modbus.Length = 0;
 	for(i = 0; i < 50; i++) {
-		modbus.Data[i] = 0;
+		buffer[i] = 0;
 	}
-
+	modbus.New = 0;
 }
 
 void modbus_rtu_receive_irq(uint8_t data)
@@ -82,16 +86,16 @@ void modbus_rtu_receive_irq(uint8_t data)
 			rtu_rx_state = MB_RTU_RX_FUNC;
 			break;
 		case MB_RTU_RX_FUNC:
-			modbus.Funtion = data;
+			modbus.Function = data;
 			rtu_rx_count = 0;
 			rtu_rx_state = MB_RTU_RX_ADDR_QUA;
 			break;
 		case MB_RTU_RX_ADDR_QUA:
 			modbus.Data[rtu_rx_count++] = data;
 			if(rtu_rx_count >= 4) {
-				if(modbus.Funtion < 7) {
+				if(modbus.Function < 7) {
 					rtu_rx_state = MB_RTU_RX_CRC_HI;
-					modbus.Lenght = rtu_rx_count;
+					modbus.Length = rtu_rx_count;
 					break;
 				}
 				rtu_rx_state = MB_RTU_RX_BYTE_COUNT;
@@ -99,12 +103,12 @@ void modbus_rtu_receive_irq(uint8_t data)
 			break;
 		case MB_RTU_RX_BYTE_COUNT:
 			modbus.Data[rtu_rx_count++] = data;
-			modbus.Lenght = rtu_rx_count + data;
+			modbus.Length = rtu_rx_count + data;
 			rtu_rx_state = MB_RTU_RX_VALUE;
 			break;
 		case MB_RTU_RX_VALUE:
 			modbus.Data[rtu_rx_count++] = data;
-			if(rtu_rx_count >= modbus.Lenght) {
+			if(rtu_rx_count >= modbus.Length) {
 				rtu_rx_state = MB_RTU_RX_CRC_HI;
 			}
 			break;
@@ -117,12 +121,27 @@ void modbus_rtu_receive_irq(uint8_t data)
 			modbus.Crc |= (data << 8);
 			modbus.New = 1;
 			rtu_rx_state = MB_RTU_RX_ID;
-//			printf("RX new frame[%.2X %.2X %.4X]\n", Modbus.ID, Modbus.Funtion, Modbus.Crc);
+			//printf("RX new frame[%.2X %.2X %.4X]\n", modbus.ID, modbus.Function, modbus.Crc);
 			break;
 		default:
 			rtu_rx_state = MB_RTU_RX_ID;
 			break;
 	}
+}
+
+void modbus_tcp_parse_frame(uint8_t *frame, uint16_t len)
+{
+	uint16_t temp;
+//	modbus.MBAP_Header.TransactionID = (frame[0] << 8) | frame[1];
+//	modbus.MBAP_Header.ProtocolID = (frame[2] << 8) | frame[3];
+//	modbus.MBAP_Header.Length = (frame[4] << 8) | frame[5];
+//	modbus.MBAP_Header.UnitID = frame[6];
+//	modbus.Function = frame[7];
+//	memcpy(&modbus.Data, frame + 8, len - 8);
+	memcpy((char *)&modbus.TransactionID, frame , len);
+	temp = modbus.Length;
+	modbus.Length = temp >> 8 | temp << 8;
+	modbus.New = 1;
 }
 
 static void modbus_response(ModbusHandle_TypeDef *hmodbus)
@@ -132,7 +151,7 @@ static void modbus_response(ModbusHandle_TypeDef *hmodbus)
 //	uint8_t crcs[2];
 	if(hmodbus->Protocol == MODBUS_RTU){//RTU
 		ptxdata = &hmodbus->ID;
-		txlen = hmodbus->Lenght + 2;
+		txlen = hmodbus->Length + 2;
 		hmodbus->Crc = modbus_CRC16(ptxdata, txlen);
 //		crcs[0] = hmodbus->Crc
 		__RS485_TX_Mode();
@@ -142,15 +161,19 @@ static void modbus_response(ModbusHandle_TypeDef *hmodbus)
 	}
 	else//TCP
 	{
-
+		uint16_t temp = modbus.Length + 2;
+		modbus.Length = (temp & 0xFF00) >> 8 | (temp & 0xFF) << 8;
+		ptxdata = (uint8_t *)&hmodbus->TransactionID;
+		txlen = temp + 6;
+		tcp_send_data(ptxdata, txlen);
 	}
 }
 
 static void modbus_response_exception(ModbusHandle_TypeDef *hmodbus, uint8_t exceptionCode)
 {
-	hmodbus->Funtion = hmodbus->Funtion | MB_EXCP_FUNC_CODE;
+	hmodbus->Function = hmodbus->Function | MB_EXCP_FUNC_CODE;
 	hmodbus->Data[0] = exceptionCode;
-	hmodbus->Lenght = 1;
+	hmodbus->Length = 1;
 
 	modbus_response(hmodbus);
 }
@@ -176,7 +199,7 @@ static void modbus_processing_function_1(void)
 //		resData[1] |= outputCoils[startAddr + i] << i;
 		modbus.Data[1] |= digital_read(startAddr + i, 1) << i;
 	}
-	modbus.Lenght = 2;
+	modbus.Length = 2;
 	modbus_response(&modbus);
 }
 
@@ -204,7 +227,7 @@ static void modbus_processing_function_2(void)
 //		resData[1] |= descreteInput[startAddr + i] << i;
 		modbus.Data[1] |= digital_read(startAddr + i, 0) << i;
 	}
-	modbus.Lenght = 2;
+	modbus.Length = 2;
 	modbus_response(&modbus);
 }
 
@@ -240,7 +263,7 @@ static void modbus_processing_function_3(void)
 		dataVal[i * 2] = vout >> 8;
 		dataVal[i * 2 + 1] = vout & 0xFF;
 	}
-	modbus.Lenght = modbus.Data[0] + 1;
+	modbus.Length = modbus.Data[0] + 1;
 	modbus_response(&modbus);
 }
 
@@ -275,7 +298,7 @@ static void modbus_processing_function_4(void)
 		dataVal[i * 2] = vout >> 8;
 		dataVal[i * 2 + 1] = vout & 0xFF;
 	}
-	modbus.Lenght = modbus.Data[0] + 1;
+	modbus.Length = modbus.Data[0] + 1;
 	modbus_response(&modbus);
 }
 
@@ -295,12 +318,12 @@ static void modbus_processing_function_5(void)
 	}
 
 	if(value == 0) {
-		digital_write(startAddr, 0);
+		digital_write(startAddr, 1); // LOW
 	}
 	else {
-		digital_write(startAddr, 1);
+		digital_write(startAddr, 0); // high
 	}
-	modbus.Lenght = 4;
+	modbus.Length = 4;
 	modbus_response(&modbus);
 }
 
@@ -328,7 +351,7 @@ static void modbus_processing_function_6(void)
 		modbus_response_exception(&modbus, MB_EXCP_ILLEGAL_DATA_ADDR);
 		return;
 	}
-	modbus.Lenght = 4;
+	modbus.Length = 4;
 	modbus_response(&modbus);
 }
 
@@ -355,10 +378,10 @@ static void modbus_processing_function_15(void)
 	uint8_t i;
 	uint8_t state = modbus.Data[5];
 	for(i = 0; i < quantity; i++) {
-		digital_write(startAddr + i, (state >> i) & 0x01);
+		digital_write(startAddr + i, ((state >> i) & 0x01)==0);
 	}
 
-	modbus.Lenght = 4;
+	modbus.Length = 4;
 	modbus_response(&modbus);
 }
 
@@ -394,13 +417,13 @@ static void modbus_processing_function_16(void)
 		}
 	}
 
-	modbus.Lenght = 4;
+	modbus.Length = 4;
 	modbus_response(&modbus);
 }
 void modbus_checking_request(void)
 {
 	if(modbus.New == 0) return;
-
+	printf("New modbus request\n");
 	if(modbus.Protocol == MODBUS_RTU)
 	{
 		if(modbus.ID != MB_SLAVE_ID) // frame not addressed
@@ -409,15 +432,24 @@ void modbus_checking_request(void)
 			modbus_clear_buffer();
 			return;
 		}
-		if(modbus_CRC16(&modbus.ID, modbus.Lenght + 2) != modbus.Crc) // error crc
+		if(modbus_CRC16(&modbus.ID, modbus.Length + 2) != modbus.Crc) // error crc
 		{
 			printf("wrong crc\n");
 			modbus_clear_buffer();
 			return;
 		}
 	}
+	else if(modbus.Protocol == MODBUS_TCP)
+	{
+		if(modbus.ID!= MB_SLAVE_ID) // frame not addressed
+		{
+			printf("wrong id\n");
+			modbus_clear_buffer();
+			return;
+		}
+	}
 	LED_COM_ON();
-	switch (modbus.Funtion) {
+	switch (modbus.Function) {
 		case MB_FUNC1_READ_COILS:
 			modbus_processing_function_1();
 			break;
@@ -451,6 +483,7 @@ void modbus_checking_request(void)
 }
 void modbus_init(ModbusProtocol_TypeDef protocol)
 {
+	modbus.Protocol = protocol;
 	modbus_clear_buffer();
 
 	if(protocol == MODBUS_RTU)
